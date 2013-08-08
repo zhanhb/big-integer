@@ -60,11 +60,11 @@ LDLIBSOPTIONS=
 
 # Build Targets
 .build-conf: ${BUILD_SUBPROJECTS}
-	"${MAKE}"  -f nbproject/Makefile-Release.mk dist/Release/MinGW-Windows/cppapplication_1.exe
+	"${MAKE}"  -f nbproject/Makefile-Release.mk dist/Release/MinGW-Windows/biginteger.exe
 
-dist/Release/MinGW-Windows/cppapplication_1.exe: ${OBJECTFILES}
+dist/Release/MinGW-Windows/biginteger.exe: ${OBJECTFILES}
 	${MKDIR} -p dist/Release/MinGW-Windows
-	${LINK.cc} -o ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/cppapplication_1 ${OBJECTFILES} ${LDLIBSOPTIONS} 
+	${LINK.cc} -o ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/biginteger ${OBJECTFILES} ${LDLIBSOPTIONS} 
 
 ${OBJECTDIR}/application.o: application.cpp 
 	${MKDIR} -p ${OBJECTDIR}
@@ -112,7 +112,7 @@ ${OBJECTDIR}/application_nomain.o: ${OBJECTDIR}/application.o application.cpp
 # Clean Targets
 .clean-conf: ${CLEAN_SUBPROJECTS}
 	${RM} -r build/Release
-	${RM} dist/Release/MinGW-Windows/cppapplication_1.exe
+	${RM} dist/Release/MinGW-Windows/biginteger.exe
 
 # Subprojects
 .clean-subprojects:
