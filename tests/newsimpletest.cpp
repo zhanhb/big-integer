@@ -127,7 +127,7 @@ struct Random {
 	}
 
 	LL nextLong() {
-		return (LL) nextInt() << 32 + nextInt();
+		return ((LL) nextInt() << 32) + nextInt();
 	}
 
 	int nextInt(int n) {
@@ -477,7 +477,7 @@ void testConstructor() {
 #define  __testConstructor(type) do {							\
 	type mx = numeric_limits<type>::max();						\
 	type mn = numeric_limits<type>::min();						\
-	ostringstream os; os << (LL) mx << ' ' << (LL) mn;			\
+	ostringstream os; os << mx << ' ' << mn;					\
 	assert(os.str()[0]);										\
 	BigInteger mmx(mx), mmn(mn);								\
 	string a = os.str();										\
@@ -491,9 +491,6 @@ void testConstructor() {
 	}															\
 } while(false)
 	__testConstructor(bool);
-	__testConstructor(char);
-	__testConstructor(signed char);
-	__testConstructor(unsigned char);
 	__testConstructor(wchar_t);
 	__testConstructor(short);
 	__testConstructor(unsigned short);
@@ -501,11 +498,34 @@ void testConstructor() {
 	__testConstructor(unsigned int);
 	__testConstructor(long);
 	__testConstructor(unsigned long);
+	__testConstructor(LL);
+	__testConstructor(unsigned LL);
 #if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_INT128)
 	__testConstructor(__int128);
 	__testConstructor(unsigned __int128);
 #endif
 #undef __testConstructor
+
+#define __testCharConstructor(type)  do {						\
+	type mx = numeric_limits<type>::max();						\
+	type mn = numeric_limits<type>::min();						\
+	ostringstream os; os << (LL) mx << ' ' << (LL) mn;			\
+	assert(os.str()[0]);										\
+	BigInteger mmx(mx), mmn(mn);								\
+	string a = os.str();										\
+	string b = mmx.toString() + " " + mmn.toString();			\
+	if(a != b) {												\
+		out(#type);												\
+		out(a);													\
+		out(b);													\
+		assert(false);											\
+		assert(a == b);											\
+	}															\
+} while(false)
+	__testCharConstructor(char);
+	__testCharConstructor(signed char);
+	__testCharConstructor(unsigned char);
+#undef __testCharConstructor
 }// </editor-fold>
 
 void testBit() {
