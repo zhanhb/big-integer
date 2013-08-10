@@ -35,12 +35,6 @@ OBJECTDIR=build/${CND_CONF}/${CND_PLATFORM}
 OBJECTFILES= \
 	${OBJECTDIR}/application.o
 
-# Test Directory
-TESTDIR=build/${CND_CONF}/${CND_PLATFORM}/tests
-
-# Test Files
-TESTFILES= \
-	${TESTDIR}/TestFiles/f1
 
 # C Compiler Flags
 CFLAGS=
@@ -73,41 +67,6 @@ ${OBJECTDIR}/application.o: application.cpp
 
 # Subprojects
 .build-subprojects:
-
-# Build Test Targets
-.build-tests-conf: .build-conf ${TESTFILES}
-${TESTDIR}/TestFiles/f1: ${TESTDIR}/tests/newsimpletest.o ${OBJECTFILES:%.o=%_nomain.o}
-	${MKDIR} -p ${TESTDIR}/TestFiles
-	${LINK.cc} -o ${TESTDIR}/TestFiles/f1 $^ ${LDLIBSOPTIONS} 
-
-
-${TESTDIR}/tests/newsimpletest.o: tests/newsimpletest.cpp 
-	${MKDIR} -p ${TESTDIR}/tests
-	${RM} $@.d
-	$(COMPILE.cc) -O2 -I. -MMD -MP -MF $@.d -o ${TESTDIR}/tests/newsimpletest.o tests/newsimpletest.cpp
-
-
-${OBJECTDIR}/application_nomain.o: ${OBJECTDIR}/application.o application.cpp 
-	${MKDIR} -p ${OBJECTDIR}
-	@NMOUTPUT=`${NM} ${OBJECTDIR}/application.o`; \
-	if (echo "$$NMOUTPUT" | ${GREP} '|main$$') || \
-	   (echo "$$NMOUTPUT" | ${GREP} 'T main$$') || \
-	   (echo "$$NMOUTPUT" | ${GREP} 'T _main$$'); \
-	then  \
-	    ${RM} $@.d;\
-	    $(COMPILE.cc) -O2 -Dmain=__nomain -MMD -MP -MF $@.d -o ${OBJECTDIR}/application_nomain.o application.cpp;\
-	else  \
-	    ${CP} ${OBJECTDIR}/application.o ${OBJECTDIR}/application_nomain.o;\
-	fi
-
-# Run Test Targets
-.test-conf:
-	@if [ "${TEST}" = "" ]; \
-	then  \
-	    ${TESTDIR}/TestFiles/f1 || true; \
-	else  \
-	    ./${TEST} || true; \
-	fi
 
 # Clean Targets
 .clean-conf: ${CLEAN_SUBPROJECTS}
