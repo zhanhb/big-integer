@@ -69,36 +69,14 @@ public:
     getChars(std::basic_string<_CharT, _Traits, _Alloc> & toAppend, int radix = 10) const;
     std::string toString(int radix = 10) const;
     double doubleValue() const;
+    int intValue() const;
     BasicBigInteger abs() const;
 
 #ifndef _BIG_INTEGER_NO_STRICT
-
-    class ParseException : public std::exception {
-        const char * message;
-    public:
-
-        ParseException(const char * what) : message(what ? what : "") { }
-
-        ~ParseException() throw () { }
-
-        const char * what() const throw () {
-            return message;
-        }
-    };
-private:
-
-    static void __throw_parse_error(const char * s) {
-        throw ParseException(s);
-    }
-#else
-private:
-
-    static void __throw_parse_error(const char * s) {
-        // do nothing
-    }
+    class ParseException;
 #endif
-
 private:
+    static void __throw_parse_error(const char *);
     class Tool;
     const static Tool tool;
     static void ensureSize(MagRef, SizeType);
@@ -125,6 +103,8 @@ private:
     template<typename _CharT, typename _Traits, typename _Alloc>
     static std::basic_string<_CharT, _Traits, _Alloc> &
     getChars(ConstMagRef, int, std::basic_string<_CharT, _Traits, _Alloc> &);
+    template<typename _BidirectionalIterator>
+    static void reverse(_BidirectionalIterator, _BidirectionalIterator);
     static Calc toLong(ConstMagRef);
     static SizeType destructiveMulAdd(MagRef, Value, Value, SizeType);
     template<typename _ForwardIterator> static Value parseInt(_ForwardIterator, _ForwardIterator, int);
@@ -134,6 +114,8 @@ private:
     static void doXor(ConstMagRef, ConstMagRef, MagRef);
     template<typename _CharT, typename _Traits>
     static void doGet(std::basic_istream<_CharT, _Traits> &, std::ios::iostate &, BasicBigInteger &);
+    static void getTopBits(ConstMagRef, MagRef, int);
+    static bool rounding(ConstMagRef, int, bool);
     static const char * const digits;
 
 public:
@@ -307,8 +289,9 @@ friend cl & operator op##=                          \
     declareEqualFromFun(BasicBigInteger, |)
     declareEqualFromFun(BasicBigInteger, ^)
     declareEqualFromFun(BasicBigInteger, *)
-    declareEqualFromFun(BasicBigInteger, /)
     declareEqualFromFun(BasicBigInteger, %)
+    declareEqualFromFun(BasicBigInteger, /)
+    /* Google code javascript can't recogonize this. */
 #undef declareEqualFromFun
 
 #define declareFunFromEqual(cl, op) friend          \
@@ -442,14 +425,13 @@ BasicBigInteger<Value, Calc> BasicBigInteger<Value, Calc>::operator-() const {
 
 template<typename Value, typename Calc>
 BasicBigInteger<Value, Calc> BasicBigInteger<Value, Calc>::operator~() const {
-    Mag mag(this->mag);
+    Mag mag = this->mag;
 
     int sign = signum < 0 ? 1 : -1;
 
     if (signum < 0) substractOne(mag);
     else addOne(mag);
 
-    if (mag.empty())sign = 0;
     return BasicBigInteger(mag, sign);
 }
 
@@ -661,7 +643,7 @@ BasicBigInteger<Value, Calc>::getChars(std::basic_string<_CharT, _Traits, _Alloc
     if (radix < 2 || radix > 36)
         radix = 10;
 
-    if ((radix & (radix - 1)) == 0) {
+    if ((radix & radix - 1) == 0) {
         if (signum < 0)
             toAppend += '-';
         return getChars(mag, bitLength(radix - 1), toAppend);
@@ -715,24 +697,54 @@ BasicBigInteger<Value, Calc>::getChars(std::basic_string<_CharT, _Traits, _Alloc
     if (signum < 0)
         sbuf += '-';
 
-    typedef typename std::basic_string<_CharT, _Traits, _Alloc>::iterator _Ite;
-    for (_Ite first = sbuf.begin(), last = sbuf.end();;)
-        if (first == last || first == --last)break;
-        else {
-            int tmp = *first;
-            *first = *last;
-            *last = tmp;
-            ++first;
-        }
+    reverse(sbuf.begin(), sbuf.end());
 
     toAppend += sbuf;
     return toAppend;
+}
+
+template<typename Value, typename Calc> template<typename _BidirectionalIterator>
+void BasicBigInteger<Value, Calc>::
+reverse(_BidirectionalIterator __first, _BidirectionalIterator __last) {
+    for (;;)
+        if (__first == __last || __first == --__last)
+            return;
+        else {
+            typename _BidirectionalIterator::value_type __tmp = *__first;
+            *__first = *__last;
+            *__last = __tmp;
+            ++__first;
+        }
 }
 
 template<typename Value, typename Calc>
 std::string BasicBigInteger<Value, Calc>::toString(int radix) const {
     std::string buf;
     return getChars(buf, radix);
+}
+
+#ifndef _BIG_INTEGER_NO_STRICT
+
+template<typename Value, typename Calc>
+class BasicBigInteger<Value, Calc>::ParseException : public std::exception {
+    const char * message;
+public:
+
+    ParseException(const char * what) : message(what ? what : "") { }
+
+    ~ParseException() throw () { }
+
+    const char * what() const throw () {
+        return message;
+    }
+};
+#endif
+
+template<typename Value, typename Calc>
+void BasicBigInteger<Value, Calc>::__throw_parse_error(const char * s) {
+#ifndef _BIG_INTEGER_NO_STRICT
+    throw ParseException(s);
+#endif
 }
 
 template<typename Value, typename Calc>
@@ -907,15 +919,15 @@ void BasicBigInteger<Value, Calc>::multiplyToLen(ConstMagRef lhs, ConstMagRef rh
 }
 
 template<typename Value, typename Calc>
-void BasicBigInteger<Value, Calc>::multiply(ConstMagRef x, ConstMagRef y, MagRef z) {
-    multiplyToLen(x, y, z);
+void BasicBigInteger<Value, Calc>::multiply(ConstMagRef lhs, ConstMagRef rhs, MagRef result) {
+    multiplyToLen(lhs, rhs, result);
 }
 
 template<typename Value, typename Calc>
 typename BasicBigInteger<Value, Calc>::MagRef
 BasicBigInteger<Value, Calc>::divide(ConstMagRef a, ConstMagRef b,
         MagRef quotient, MagRef rem) {
-    if (!b.size()) { // divide by zero
+    if (b.empty()) { // divide by zero
         // the size of b is zero, divide by it will cause the same result
         quotient.push_back(0 / b.size());
     }
@@ -1266,7 +1278,7 @@ void BasicBigInteger<Value, Calc>::rightShift(MagRef val, SizeType n) {
     Value c = val[i + nInts], b;
 
     int n2 = SHIFT - nBits;
-    for (c = val[i]; i + nInts + 1 < intLen; ++i) {
+    for (; i + nInts + 1 < intLen; ++i) {
         b = c;
         c = val[i + nInts + 1];
         val[i] = (c << n2) | ((b & INT_MASK) >> nBits);
@@ -1397,11 +1409,11 @@ void BasicBigInteger<Value, Calc>::doGet(std::basic_istream<_CharT, _Traits> & _
     typedef std::istreambuf_iterator<_CharT, _Traits> _InIter;
     _InIter __beg(__io), __end(0);
     bool __testeof = __beg == __end;
-    int __sep_pos = 0;
+    int __sep_pos = 0, __base;
 
     if (!__testeof) {
         const std::ios::fmtflags __basefield = __io.flags() & std::ios::basefield;
-        int __base = __basefield == std::ios::oct ? 8 :
+        __base = __basefield == std::ios::oct ? 8 :
                 (__basefield == std::ios::hex ? 16 : 10);
         _CharT __c = *__beg;
 
@@ -1435,8 +1447,8 @@ void BasicBigInteger<Value, Calc>::doGet(std::basic_istream<_CharT, _Traits> & _
         __err |= std::ios::eofbit;
 
     if (__sep_pos)
-        x.assign(__xtrc);
-#if !(defined(_MSC_VER))
+        x.assign(__xtrc, __base);
+#ifndef _MSC_VER
         // different compliers do the different things.
         // I only test VS 2012 and Mingw.
     else if (__err)
@@ -1445,42 +1457,114 @@ void BasicBigInteger<Value, Calc>::doGet(std::basic_istream<_CharT, _Traits> & _
 }
 
 template<typename Value, typename Calc>
+void BasicBigInteger<Value, Calc>::getTopBits(ConstMagRef data, MagRef bits, int n) {
+    __big_integer_assert(!data.empty() && n);
+
+    SizeType nLen = data.size() - 1;
+    int nInts = n / SHIFT, nBits = n % SHIFT;
+    SizeType bitsLen = bitLength(data[nLen]);
+    if (nLen < nInts || nLen == nInts && bitsLen <= nBits) {
+        bits = data;
+        leftShift(bits, n - bitsLen - SHIFT * nLen);
+        return;
+    }
+
+    if (nLen == nInts) {
+        bits = data;
+        __big_integer_assert(bitsLen > nBits);
+        rightShift(bits, bitsLen - nBits);
+    } else {
+        __big_integer_assert(data.size() >= nInts + 2);
+        bits.assign(data.end() - nInts - 2, data.end());
+        rightShift(bits, bitsLen + SHIFT - nBits);
+    }
+
+    // process double even
+    if (rounding(data, n, (bits[0] & 1))) addOne(bits);
+}
+
+template<typename Value, typename Calc>
+bool BasicBigInteger<Value, Calc>::rounding(ConstMagRef data, int n, bool odd) {
+    SizeType nLen = data.size() - 1;
+    int nInts = n / SHIFT, nBits = n % SHIFT;
+    SizeType bitsLen = bitLength(data[nLen]);
+
+    SizeType cursor = nLen - nInts;
+    __big_integer_assert(nLen >= nInts);
+    int shift = bitsLen - nBits - 1;
+    if (shift < 0) {
+        if (!cursor--)return false;
+        shift += SHIFT;
+    }
+    bool __bl = data[cursor] >> shift & 1;
+    if (!__bl)return false;
+    if (data[cursor] & ~(~static_cast<Value> (0) << shift))return true;
+    while (cursor--) if (data[cursor])return true;
+    return false;
+}
+
+template<typename Value, typename Calc>
 double BasicBigInteger<Value, Calc>::doubleValue() const { // ieee754
     if (signum == 0) return 0;
 
-    union {
-        double dVal;
-        char cVal[8];
-    } hash;
+    double dVal = 0;
 
-    SizeType cursor = mag.size() - 1;
-    Calc val = mag[cursor] & INT_MASK;
-    int shift = bitLength(val) - 1;
-    SizeType tot = shift + SHIFT * cursor;
-    if (tot > 1023) return 1.0 / 0.0;
-    int exp = 1023 + tot;
+    SizeType nLen = mag.size() - 1;
+    Value valInHighBit = mag[nLen];
+    int shift = bitLength(valInHighBit) - 1;
+    valInHighBit &= ~(~static_cast<long> (0) << shift);
+    SizeType tot = shift + SHIFT * nLen;
 
-    hash.dVal = 0;
-
-    int i = 8;
-    hash.cVal[--i] = (signum < 0) << 7 | (exp >> 4 & 0x7F);
-
-    val = (Calc) exp << shift | val & ~(~static_cast<Value> (0) << shift);
-    shift -= 4;
-    while (i--) {
-        if (shift < 0) {
-            if (cursor == 0) {
-                hash.cVal[i] = val << -shift;
-                break;
-            }
-            val = val << SHIFT | mag[--cursor] & INT_MASK;
-            shift += SHIFT;
-        }
-        hash.cVal[i] = val >> shift;
-        shift -= 8;
+    if (tot > 1023) {
+        short * sVal = reinterpret_cast<short*>
+                (&const_cast<char&> (reinterpret_cast<const volatile char&> (dVal)));
+        *sVal++ = 0xFFFF;
+        *sVal++ = 0xFFFF;
+        *sVal++ = 0xFFFF;
+        *sVal++ = signum < 0 ? 0xFFEF : 0x7FEF;
+        return dVal;
     }
 
-    return hash.dVal;
+    int exp = 1023 + tot;
+
+    Mag bits;
+    getTopBits(this->mag, bits, 53);
+    if (bitLength(bits[bits.size() - 1]) > 53 % SHIFT) {
+        short * sVal = reinterpret_cast<short*>
+                (&const_cast<char&> (reinterpret_cast<const volatile char&> (dVal)));
+        *sVal++ = 0xFFFF;
+        *sVal++ = 0xFFFF;
+        *sVal++ = 0xFFFF;
+        *sVal++ = signum < 0 ? 0xFFEF : 0x7FEF;
+        return dVal;
+    }
+
+    int newSize = (64 + SHIFT - 1) / SHIFT, cursor = 52 / SHIFT;
+
+    bits.resize(newSize);
+    bits[cursor] &= ~(1 << 52 % SHIFT); // set the 53rd bit to zero
+
+    __big_integer_assert((exp & 0x7FF) == exp);
+    short rest = (signum < 0) << 11 | exp;
+    bits[cursor++] |= rest << 52 % SHIFT;
+    if (cursor < newSize) {
+        rest >>= 4;
+        bits[cursor++] = rest;
+    }
+
+    Value * p = reinterpret_cast<Value*>
+            (&const_cast<char&> (reinterpret_cast<const volatile char&> (dVal)));
+
+    for (SizeType i = 0; i < newSize; ++i) {
+        *p++ = bits[i];
+    }
+
+    return dVal;
+}
+
+template<typename Value, typename Calc>
+int BasicBigInteger<Value, Calc>::intValue() const {
+    return signum ? signum * mag[0] : 0;
 }
 
 template<typename Value, typename Calc>
@@ -1496,7 +1580,7 @@ template<typename Value, typename Calc> const BasicBigInteger<Value, Calc> Basic
 template<typename Value, typename Calc> const BasicBigInteger<Value, Calc> BasicBigInteger<Value, Calc>::ONE(1);
 template<typename Value, typename Calc> const BasicBigInteger<Value, Calc> BasicBigInteger<Value, Calc>::TEN(10);
 
-#if (defined(_BIG_INTEGER_DEBUG))
+#ifdef _BIG_INTEGER_DEBUG
 typedef BasicBigInteger<signed char, int> BigInteger;
 #elif defined(__int64) || defined (_WIN32) || defined (__WIN32) || defined (WIN32) || defined (__WIN32__)
 typedef BasicBigInteger<int, __int64> BigInteger;
