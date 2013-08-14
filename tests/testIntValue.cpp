@@ -23,10 +23,6 @@ void testIntValue(const A & a) {
     testIntValue(BigInteger(a));
 }
 
-void testIntValue(int x) {
-    testIntValue(BigInteger(x));
-}
-
 void testIntRandom() {
     Random random;
     for (int i = 0; i < 10000; ++i) {
@@ -42,11 +38,13 @@ void testIntRange() {
 
 void testIntSpecial() {
     testIntValue(INT_MAX);
-    testIntValue(INT_MAX + 1);
     testIntValue(INT_MAX - 1);
+    testIntValue(INT_MAX - 2);
+
     testIntValue(INT_MIN);
-    testIntValue(INT_MIN - 1);
     testIntValue(INT_MIN + 1);
+    testIntValue(INT_MIN + 2);
+    testIntValue(INT_MIN + 3);
 }
 
 int main(int argc, char** argv) {
@@ -55,6 +53,6 @@ int main(int argc, char** argv) {
     TestMethod(testIntRange);
     TestMethod(testIntSpecial);
     TestEnd();
-    return (EXIT_SUCCESS);
+    return EXIT_SUCCESS;
 }
 

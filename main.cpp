@@ -3,7 +3,7 @@
 using namespace std;
 
 int main() {
-    for (int n; cin >> n;) {
+    for (BigInteger n; cin >> n;) {
         BigInteger fac = 1;
         for (int i = 1; i <= n; ++i)
             fac *= i;

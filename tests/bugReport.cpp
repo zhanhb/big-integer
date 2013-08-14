@@ -18,7 +18,6 @@ void bug_1() {
 }
 
 int main(int argc, char** argv) {
-    cout << __FILE__ << endl;
     TestStart();
     TestMethod(bug_1);
     TestEnd();

@@ -41,17 +41,20 @@
                      kind="TEST">
         <itemPath>tests/bugReport.cpp</itemPath>
       </logicalFolder>
-      <logicalFolder name="f5"
-                     displayName="TestDoubleValue"
-                     projectFiles="true"
-                     kind="TEST">
-        <itemPath>tests/toDoubleTest.cpp</itemPath>
+      <logicalFolder name="f4" displayName="TestGcd" projectFiles="true" kind="TEST">
+        <itemPath>tests/testGcd.cpp</itemPath>
       </logicalFolder>
-      <logicalFolder name="f4"
+      <logicalFolder name="f5"
                      displayName="TestIntValue"
                      projectFiles="true"
                      kind="TEST">
         <itemPath>tests/testIntValue.cpp</itemPath>
+      </logicalFolder>
+      <logicalFolder name="f6"
+                     displayName="ToDoubleTest"
+                     projectFiles="true"
+                     kind="TEST">
+        <itemPath>tests/toDoubleTest.cpp</itemPath>
       </logicalFolder>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
@@ -144,6 +147,21 @@
         </ccTool>
         <linkerTool>
           <output>${TESTDIR}/TestFiles/f5</output>
+        </linkerTool>
+      </folder>
+      <folder path="TestFiles/f6">
+        <cTool>
+          <incDir>
+            <pElem>.</pElem>
+          </incDir>
+        </cTool>
+        <ccTool>
+          <incDir>
+            <pElem>.</pElem>
+          </incDir>
+        </ccTool>
+        <linkerTool>
+          <output>${TESTDIR}/TestFiles/f6</output>
         </linkerTool>
       </folder>
     </conf>
@@ -240,6 +258,21 @@
         </ccTool>
         <linkerTool>
           <output>${TESTDIR}/TestFiles/f5</output>
+        </linkerTool>
+      </folder>
+      <folder path="TestFiles/f6">
+        <cTool>
+          <incDir>
+            <pElem>.</pElem>
+          </incDir>
+        </cTool>
+        <ccTool>
+          <incDir>
+            <pElem>.</pElem>
+          </incDir>
+        </ccTool>
+        <linkerTool>
+          <output>${TESTDIR}/TestFiles/f6</output>
         </linkerTool>
       </folder>
     </conf>

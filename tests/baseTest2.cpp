@@ -33,7 +33,15 @@ void testCalc0(const IntClass & x, const IntClass & y) {
 
     if (y) {
         assert(xx / yy == x / y);
-        assert(xx % yy == x % y);
+        if (xx % yy != x % y) {
+            out(xx);
+            out(yy);
+            out(x);
+            out(y);
+            out(xx % yy);
+            out(x % y);
+            assert(xx % yy == x % y);
+        }
     }
 }
 
@@ -270,7 +278,6 @@ void testAbs() {
 }
 
 int main(int argc, char** argv) {
-    cerr << setprecision(23) << hex;
     TestStart();
     TestMethod(testCalc);
     TestMethod(testCalc2);

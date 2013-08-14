@@ -187,14 +187,14 @@ void testAddOne() {
     int x;
     BigInteger y;
 
-    y = x = -1000000;
-    for (; x <= 1000000; ++x) {
+    y = x = -100000;
+    for (; x <= 100000; ++x) {
         assert(BigInteger(x) == y);
         y += 1;
     }
 
-    y = x = -1000000;
-    for (; x <= 1000000; ++x) {
+    y = x = -100000;
+    for (; x <= 100000; ++x) {
         assert(BigInteger(x) == y);
         y = y + 1;
     }
@@ -243,7 +243,6 @@ void testCinWithFlag() {
 }
 
 int main(int argc, char** argv) {
-    cerr << setprecision(23) << hex;
     TestStart();
     TestMethod(testCompile);
     TestMethod(test0);

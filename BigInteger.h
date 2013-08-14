@@ -11,7 +11,6 @@
 #error Plase use other compliers instead of old version VC++ for it does not support standard c++.
 #endif
 
-#include <exception>
 #include <string>
 #include <istream>
 #include <ostream>
@@ -28,6 +27,7 @@ class BasicBigInteger {
     typedef StorageType Value;
     typedef CalculateType Calc;
     typedef std::vector<Value>Mag;
+    typedef typename Mag::reference Reference;
     typedef Mag & MagRef;
     typedef const Mag & ConstMagRef;
     typedef typename Mag::size_type SizeType;
@@ -61,6 +61,8 @@ public:
     template<typename _CharT, typename _Traits, typename _Alloc> void assign(const std::basic_string<_CharT, _Traits, _Alloc> & val, int radix = 10);
     BasicBigInteger & operator+=(const BasicBigInteger & val);
     BasicBigInteger & operator-=(const BasicBigInteger & val);
+    BasicBigInteger & operator%=(const BasicBigInteger & val);
+    BasicBigInteger & operator/=(const BasicBigInteger & val);
     BasicBigInteger & operator<<=(int n);
     BasicBigInteger & operator>>=(int n);
     int compareTo(const BasicBigInteger & val) const;
@@ -71,6 +73,7 @@ public:
     double doubleValue() const;
     int intValue() const;
     BasicBigInteger abs() const;
+    BasicBigInteger gcd(const BasicBigInteger &) const;
 
 #ifndef _BIG_INTEGER_NO_STRICT
     class ParseException;
@@ -89,12 +92,12 @@ private:
     static void normalize(MagRef);
     static void multiplyToLen(ConstMagRef, ConstMagRef, MagRef);
     static void multiply(ConstMagRef, ConstMagRef, MagRef);
-    static MagRef divide(ConstMagRef, ConstMagRef, MagRef, MagRef);
+    static MagRef divide(MagRef, ConstMagRef, MagRef);
     template<typename IntClass> static int bitLength(IntClass);
     static bool unsignedLongCompare(Calc, Calc);
     static Value mulsub(MagRef, ConstMagRef, Value, SizeType, SizeType);
     static Value divadd(ConstMagRef, MagRef, SizeType);
-    static MagRef divideMagnitude(ConstMagRef, Mag, MagRef, MagRef);
+    static MagRef divideMagnitude(MagRef, Mag, MagRef);
     template<typename IntClass> static int numberOfLeadingZeros(IntClass);
     static Value divideOneWord(ConstMagRef, Value, MagRef);
     static void divWord(Value *, Calc, Value);
@@ -113,7 +116,7 @@ private:
     static void andNot(ConstMagRef, ConstMagRef, MagRef);
     static void doXor(ConstMagRef, ConstMagRef, MagRef);
     template<typename _CharT, typename _Traits>
-    static void doGet(std::basic_istream<_CharT, _Traits> &, std::ios::iostate &, BasicBigInteger &);
+    void doGet(std::basic_istream<_CharT, _Traits> &, std::ios::iostate &);
     static void getTopBits(ConstMagRef, MagRef, int);
     static bool rounding(ConstMagRef, int, bool);
     static const char * const digits;
@@ -121,60 +124,21 @@ private:
 public:
 
     // friends' functions
-
-    template<typename _CharT, typename _Traits>
+    template<typename _CharT, typename _Traits, typename _Value, typename _Calc>
     friend std::basic_istream<_CharT, _Traits> &
-    operator>>(std::basic_istream<_CharT, _Traits> & __io, BasicBigInteger & x) {
-        typedef typename std::basic_istream<_CharT, _Traits>::sentry Sentry;
-        Sentry __cerb(__io, false);
-        if (__cerb) {
-            std::ios::iostate __err = std::ios::goodbit;
-            doGet(__io, __err, x);
-            if (__err)
-                __io.setstate(__err);
-        }
-        return __io;
-    }
+    operator>>(std::basic_istream<_CharT, _Traits> & __io, BasicBigInteger<_Value, _Calc> & x);
 
-    template<typename _CharT, typename _Traits>
+    template<typename _CharT, typename _Traits, typename _Value, typename _Calc>
     friend std::basic_ostream<_CharT, _Traits> &
-    operator<<(std::basic_ostream<_CharT, _Traits> & out, const BasicBigInteger &val) {
-        std::basic_string<_CharT> _str;
-        const std::ios::fmtflags flags = out.flags(), baseFlag = flags & std::ios::basefield;
-        int base = baseFlag == std::ios::oct ? 8
-                : baseFlag == std::ios::hex ? base = 16 : 10;
+    operator<<(std::basic_ostream<_CharT, _Traits> & out, const BasicBigInteger<_Value, _Calc> &val);
 
-        val.getChars(_str, base);
-
-        if (base == 16 && (flags & std::ios::uppercase)) {
-            typedef typename std::basic_string<_CharT>::size_type Size;
-            for (Size i = _str.size(); i--;) {
-                _CharT & _ch = _str[i];
-                if ('a' <= _ch && _ch <= 'z')
-                    _ch ^= 32;
-            }
-        }
-        return out << _str;
-    }
-
-    friend BasicBigInteger operator*(const BasicBigInteger & lhs, const BasicBigInteger & rhs) {
+    friend BasicBigInteger operator *(const BasicBigInteger & lhs, const BasicBigInteger & rhs) {
         if (lhs.signum == 0 || rhs.signum == 0)
             return BasicBigInteger();
 
         Mag mag;
         multiply(lhs.mag, rhs.mag, mag);
         return BasicBigInteger(mag, lhs.signum * rhs.signum);
-    }
-
-    friend BasicBigInteger operator/(const BasicBigInteger & lhs, const BasicBigInteger &rhs) {
-        Mag qmag, rmag;
-        divide(lhs.mag, rhs.mag, qmag, rmag);
-        return BasicBigInteger(qmag, lhs.signum * rhs.signum);
-    }
-
-    friend BasicBigInteger operator%(const BasicBigInteger & lhs, const BasicBigInteger & rhs) {
-        Mag qmag, rmag;
-        return BasicBigInteger(divide(lhs.mag, rhs.mag, qmag, rmag), lhs.signum);
     }
 
     friend BasicBigInteger operator &(const BasicBigInteger & lhs, const BasicBigInteger & rhs) {
@@ -279,46 +243,46 @@ public:
         }
     }
 
-#define declareEqualFromFun(cl, op)                 \
-friend cl & operator op##=                          \
-(cl & __lhs, const cl & __rhs) {                    \
-    return __lhs = __lhs op __rhs;                  \
+#define declareEqualFromFun(cl, op)             \
+friend cl & operator op##=                      \
+(cl & lhs, const cl & rhs) {                    \
+    return lhs = lhs op rhs;                    \
 }
 
     declareEqualFromFun(BasicBigInteger, &)
     declareEqualFromFun(BasicBigInteger, |)
     declareEqualFromFun(BasicBigInteger, ^)
     declareEqualFromFun(BasicBigInteger, *)
-    declareEqualFromFun(BasicBigInteger, %)
-    declareEqualFromFun(BasicBigInteger, /)
-    /* Google code javascript can't recogonize this. */
 #undef declareEqualFromFun
 
-#define declareFunFromEqual(cl, op) friend          \
-cl operator op(const cl & __lhs, const cl & __rhs) {\
-    cl __tmp(__lhs);                                \
-    __tmp op##= __rhs;                              \
-    return __tmp;                                   \
+#define declareFunFromEqual(cl, op) friend      \
+cl operator op(const cl & lhs, const cl & rhs) {\
+    cl __tmp(lhs);                              \
+    __tmp op##= rhs;                            \
+    return __tmp;                               \
 }
     declareFunFromEqual(BasicBigInteger, +)
     declareFunFromEqual(BasicBigInteger, -)
+    declareFunFromEqual(BasicBigInteger, %)
+    declareFunFromEqual(BasicBigInteger, /)
+    /// Google code javascript can't recogonize this.
 #undef declareFunFromEqual
 
-#define declareFunFromEqual2(cl, op) friend         \
-cl operator op(const cl & __val, int __shift) {     \
-    cl __tmp(__val);                                \
-    __tmp op##= __shift;                            \
-    return __tmp;                                   \
+#define declareFunFromEqual2(cl, op) friend     \
+cl operator op(const cl & val, int __shift) {   \
+    cl __tmp(val);                              \
+    __tmp op##= __shift;                        \
+    return __tmp;                               \
 }
     declareFunFromEqual2(BasicBigInteger, <<)
     declareFunFromEqual2(BasicBigInteger, >>)
 #undef declareFunFromEqual2
 
 
-#define declareFunFromCompareTo(cl, op)             \
-    friend inline bool                              \
-    operator op(const cl & a, const cl & b) {       \
-        return a.compareTo(b) op 0;                 \
+#define declareFunFromCompareTo(cl, op)         \
+    friend inline bool                          \
+    operator op(const cl & a, const cl & b) {   \
+        return a.compareTo(b) op 0;             \
     }
     declareFunFromCompareTo(BasicBigInteger, ==)
     declareFunFromCompareTo(BasicBigInteger, !=)
@@ -596,6 +560,24 @@ template<typename Value, typename Calc> BasicBigInteger<Value, Calc> & BasicBigI
 }
 
 template<typename Value, typename Calc> BasicBigInteger<Value, Calc> & BasicBigInteger<Value, Calc>::
+        operator/=(const BasicBigInteger<Value, Calc> & val) {
+    Mag quotient;
+    divide(mag, val.mag, quotient);
+    mag.swap(quotient);
+    signum *= val.signum;
+    if (mag.empty())signum = 0;
+    return *this;
+}
+
+template<typename Value, typename Calc> BasicBigInteger<Value, Calc> & BasicBigInteger<Value, Calc>::
+        operator%=(const BasicBigInteger<Value, Calc> & val) {
+    Mag quotient;
+    divide(mag, val.mag, quotient);
+    if (mag.empty())signum = 0;
+    return *this;
+}
+
+template<typename Value, typename Calc> BasicBigInteger<Value, Calc> & BasicBigInteger<Value, Calc>::
         operator<<=(int n) {
     if (n && SizeType(n) == n) {
         leftShift(mag, n);
@@ -654,41 +636,35 @@ BasicBigInteger<Value, Calc>::getChars(std::basic_string<_CharT, _Traits, _Alloc
     _CharT buf[bufsize + 1] = {0};
 
     // Translate number to string, a digit group at a time
-    Mag tmp(mag), q, r;
+    Mag tmp(mag), q;
     Calc r2;
     BasicBigInteger d(tool.longRadix[radix]);
     int len = tool.digitsPerLong[radix], k = len, m = 0;
     while (!tmp.empty()) {
-        divide(tmp, d.mag, q, r);
-        r2 = toLong(r);
+        divide(tmp, d.mag, q);
+        r2 = toLong(tmp);
 
         for (; k < len; ++k) {
             buf[m++] = '0';
             if (m == bufsize) sbuf += buf, m = 0;
         }
-        k = 0;
-        do {
+        for (k = 0; r2; ++k, r2 /= radix) {
             buf[m++] = digits[r2 % radix];
-            r2 /= radix;
             if (m == bufsize) sbuf += buf, m = 0;
-            ++k;
-        } while (r2);
+        }
 
         if (q.empty())break;
 
-        divide(q, d.mag, tmp, r);
-        r2 = toLong(r);
+        divide(q, d.mag, tmp);
+        r2 = toLong(q);
         for (; k < len; ++k) {
             buf[m++] = '0';
             if (m == bufsize) sbuf += buf, m = 0;
         }
-        k = 0;
-        do {
+        for (k = 0; r2; ++k, r2 /= radix) {
             buf[m++] = digits[r2 % radix];
-            r2 /= radix;
             if (m == bufsize) sbuf += buf, m = 0;
-            ++k;
-        } while (r2);
+        }
     }
     buf[m] = '\0';
     sbuf += buf;
@@ -724,6 +700,8 @@ std::string BasicBigInteger<Value, Calc>::toString(int radix) const {
 }
 
 #ifndef _BIG_INTEGER_NO_STRICT
+
+#include <exception>
 
 template<typename Value, typename Calc>
 class BasicBigInteger<Value, Calc>::ParseException : public std::exception {
@@ -925,25 +903,24 @@ void BasicBigInteger<Value, Calc>::multiply(ConstMagRef lhs, ConstMagRef rhs, Ma
 
 template<typename Value, typename Calc>
 typename BasicBigInteger<Value, Calc>::MagRef
-BasicBigInteger<Value, Calc>::divide(ConstMagRef a, ConstMagRef b,
-        MagRef quotient, MagRef rem) {
+BasicBigInteger<Value, Calc>::divide(MagRef rem, ConstMagRef b,
+        MagRef quotient) {
     if (b.empty()) { // divide by zero
         // the size of b is zero, divide by it will cause the same result
         quotient.push_back(0 / b.size());
     }
 
     // Dividend is zero
-    if (a.empty()) {
+    if (rem.empty()) {
         quotient.clear();
-        rem.clear();
         return rem;
     }
 
-    int cmp = compareMagnitude(a, b);
+    int cmp = compareMagnitude(rem, b);
     // Dividend less than divisor
     if (cmp < 0) {
         quotient.clear();
-        return rem = a;
+        return rem;
     }
     // Dividend equal to divisor
     if (cmp == 0) {
@@ -954,7 +931,7 @@ BasicBigInteger<Value, Calc>::divide(ConstMagRef a, ConstMagRef b,
 
     // Special case one word divisor
     if (b.size() == 1) {
-        Value r = divideOneWord(a, b[0], quotient);
+        Value r = divideOneWord(rem, b[0], quotient);
         if (r == 0) {
             rem.clear();
             return rem;
@@ -964,7 +941,7 @@ BasicBigInteger<Value, Calc>::divide(ConstMagRef a, ConstMagRef b,
     }
 
     // Copy divisor value to protect divisor
-    return divideMagnitude(a, b, quotient, rem);
+    return divideMagnitude(rem, b, quotient);
 }
 
 template<typename Value, typename Calc> template<typename IntClass>
@@ -1010,18 +987,15 @@ BasicBigInteger<Value, Calc>::divadd(ConstMagRef a, MagRef result, SizeType offs
 
 template<typename Value, typename Calc>
 typename BasicBigInteger<Value, Calc>::MagRef
-BasicBigInteger<Value, Calc>::divideMagnitude(ConstMagRef value, Mag divisor,
-        MagRef quotient, MagRef rem) { // divisor is a copy of the orign.
-    // Remainder starts as dividend with space for a leading zero
-    rem = value;
-
+BasicBigInteger<Value, Calc>::divideMagnitude(MagRef rem, Mag divisor,
+        MagRef quotient) { // divisor is a copy of the orign.
     SizeType nlen = rem.size();
 
-    // Set the quotient size
     SizeType dlen = divisor.size();
     __big_integer_assert(dlen >= 2);
     SizeType limit = nlen - dlen + 1;
 
+    // Set the quotient size
     quotient.resize(limit);
 
     // D1 normalize the divisor
@@ -1049,7 +1023,8 @@ BasicBigInteger<Value, Calc>::divideMagnitude(ConstMagRef value, Mag divisor,
     for (SizeType j = limit; j--;) {
         // D3 Calculate qhat
         // estimate qhat
-        Value qhat = 0;
+        // The quotient digit will be stored automatically
+        Reference qhat = quotient[j];
         Value qrem = 0;
         bool skipCorrection = false;
         Value nh = rem[dlen + j];
@@ -1072,14 +1047,11 @@ BasicBigInteger<Value, Calc>::divideMagnitude(ConstMagRef value, Mag divisor,
             }
         }
 
-        if (qhat == 0) {
-            quotient[j] = qhat;
+        if (qhat == 0)
             continue;
-        }
 
         if (!skipCorrection) { // Correct qhat
             __big_integer_assert(dlen + j >= 2);
-            __big_integer_assert(dlen + j - 2 >= 0);
             Calc nl = rem[dlen + j - 2] & INT_MASK;
             Calc rs = ((qrem & INT_MASK) << SHIFT) | nl;
             Calc estProduct = (dl & INT_MASK) * (qhat & INT_MASK);
@@ -1106,9 +1078,6 @@ BasicBigInteger<Value, Calc>::divideMagnitude(ConstMagRef value, Mag divisor,
             divadd(divisor, rem, j);
             qhat--;
         }
-
-        // Store the quotient digit
-        quotient[j] = qhat;
     } // D7 loop on j
 
     // D8 Unnormalize
@@ -1404,7 +1373,7 @@ void BasicBigInteger<Value, Calc>::doXor(ConstMagRef a, ConstMagRef b, MagRef re
 
 template<typename Value, typename Calc> template<typename _CharT, typename _Traits>
 void BasicBigInteger<Value, Calc>::doGet(std::basic_istream<_CharT, _Traits> & __io,
-        std::ios::iostate & __err, BasicBigInteger & x) {
+        std::ios::iostate & __err) {
     std::basic_string<_CharT> __xtrc;
     typedef std::istreambuf_iterator<_CharT, _Traits> _InIter;
     _InIter __beg(__io), __end(0);
@@ -1447,12 +1416,14 @@ void BasicBigInteger<Value, Calc>::doGet(std::basic_istream<_CharT, _Traits> & _
         __err |= std::ios::eofbit;
 
     if (__sep_pos)
-        x.assign(__xtrc, __base);
-#ifndef _MSC_VER
+        assign(__xtrc, __base);
+#if __GLIBCXX__ >= 20120301
         // different compliers do the different things.
         // I only test VS 2012 and Mingw.
-    else if (__err)
-        x = 0;
+    else if (__err) {
+        signum = 0;
+        mag.clear();
+    }
 #endif
 }
 
@@ -1571,6 +1542,60 @@ template<typename Value, typename Calc>
 BasicBigInteger<Value, Calc> BasicBigInteger<Value, Calc>::abs() const {
     return signum >= 0 ? * this : - * this;
 }
+
+template<typename Value, typename Calc >
+BasicBigInteger<Value, Calc> BasicBigInteger<Value, Calc>::gcd(const BasicBigInteger<Value, Calc> & val) const {
+    if (val.signum == 0)return BasicBigInteger(mag, 1);
+    if (signum == 0)return BasicBigInteger(val.mag, 1);
+
+    Mag a = this->mag, b = val.mag, q;
+    while (true) {
+        divide(a, b, q);
+        if (a.empty())
+            return BasicBigInteger<Value, Calc > (b, 1);
+        divide(b, a, q);
+        if (b.empty())
+            return BasicBigInteger<Value, Calc > (a, 1);
+    }
+}
+
+template<typename _CharT, typename _Traits, typename Value, typename Calc>
+std::basic_istream<_CharT, _Traits> &
+operator>>(std::basic_istream<_CharT, _Traits> & __io, BasicBigInteger<Value, Calc> & x) {
+    typedef typename std::basic_istream<_CharT, _Traits>::sentry Sentry;
+    Sentry __cerb(__io, false);
+    if (__cerb) {
+        std::ios::iostate __err = std::ios::goodbit;
+        x.doGet(__io, __err);
+        if (__err)
+            __io.setstate(__err);
+    }
+    return __io;
+}
+
+template<typename _CharT, typename _Traits, typename Value, typename Calc>
+std::basic_ostream<_CharT, _Traits> &
+operator<<(std::basic_ostream<_CharT, _Traits> & out, const BasicBigInteger<Value, Calc> &val) {
+    typedef std::basic_string<_CharT> StrType;
+    StrType _str;
+    const std::ios::fmtflags flags = out.flags(), baseFlag = flags & std::ios::basefield;
+    int base = baseFlag == std::ios::oct ? 8
+            : baseFlag == std::ios::hex ? base = 16 : 10;
+
+    val.getChars(_str, base);
+
+    if (base == 16 && (flags & std::ios::uppercase)) {
+        typedef typename StrType::size_type Size;
+        for (Size i = _str.length(); i--;) {
+            typename StrType::reference & _ch = _str[i];
+            if ('a' <= _ch && _ch <= 'z')
+                _ch ^= 32;
+        }
+    }
+    return out << _str;
+}
+
+#undef __big_integer_assert
 
 template<typename Value, typename Calc> const char * const BasicBigInteger<Value, Calc>::digits = "0123456789abcdefghijklmnopqrstuvwxyz";
 template<typename Value, typename Calc> const int BasicBigInteger<Value, Calc>::SHIFT = 8 * sizeof (Value);
