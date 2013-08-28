@@ -5,6 +5,8 @@
  * Created on August 12, 2013, 10:36 AM
  */
 
+#pragma once
+
 #ifndef INCLUDES_H
 #define	INCLUDES_H
 

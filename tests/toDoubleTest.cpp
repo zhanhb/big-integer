@@ -17,21 +17,15 @@
 #include "suite.h"
 #include "Random.h"
 
-Random myrandom;
-
 LL doubleToRawLongBits(double value) {
     return *((LL*) & value);
 }
 
 LL doubleToLongBits(double value) {
-    LL result = doubleToRawLongBits(value);
     // Check for NaN based on values of bit fields, maximum
     // exponent and nonzero significand.
-    if (((result & 0x7ff0000000000000LL) ==
-            0x7ff0000000000000LL) &&
-            (result & 0x000fffffffffffffLL) != 0L)
-        result = 0x7ff8000000000000LL;
-    return result;
+    if (value != value)return 0x7ff8000000000000LL;
+    return doubleToRawLongBits(value);
 }
 
 double longBitsToDouble(LL bits) {
@@ -42,7 +36,7 @@ void testToDouble(const BigInteger & big) {
     double dbVal1 = big.doubleValue(), dbVal2;
     stringstream os;
     os << big;
-    os >> dbVal2;
+    if (!(os >> dbVal2))return;
 
     assert(doubleToLongBits(dbVal1 + 0.0) == doubleToLongBits(dbVal1));
     if (doubleToLongBits(dbVal1) != doubleToLongBits(dbVal2)) {
@@ -67,13 +61,14 @@ void testToDouble(const A & a, const B & b) {
 }
 
 void testDoubleValue() {
+    Random myrandom;
     BigInteger x = 1;
     for (int i = 1; i <= 180; ++i) {
         x *= i;
         testToDouble(x);
         testToDouble(-x);
     }
-    for (int cas = 100000; cas--;) {
+    for (int cas = 30000; cas--;) {
         LL xxxxx = myrandom.nextLong();
         testToDouble(xxxxx);
     }

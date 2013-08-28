@@ -1,9 +1,8 @@
+#define _GLIBCXX_DEBUG
 #include "includes.h"
 #include "BigInteger.h"
 #include "suite.h"
 #include "Random.h"
-
-Random myrandom;
 
 template<class IntClass>
 void testCalc0(const IntClass & x, const IntClass & y) {
@@ -60,9 +59,10 @@ void testCalc() {
 }
 
 void testCalc2() {
-    for (int cas = 500000; cas--;) {
-        LL a = myrandom.nextInt(0x20000) - 0xFFFF;
-        LL b = myrandom.nextInt(0x20000) - 0xFFFF;
+    Random ram;
+    for (int cas = 100000; cas--;) {
+        LL a = ram.nextInt(0x20000) - 0xFFFF;
+        LL b = ram.nextInt(0x20000) - 0xFFFF;
         testCalc0(a, b);
     }
 }
@@ -74,23 +74,25 @@ void testDivide0(LL a, LL b) {
 }
 
 void testDivide() {
+    Random ram;
     for (int i = 0; i < 1000; ++i) {
-        int x = 65536 + myrandom.nextInt(65536);
+        int x = 65536 + ram.nextInt(65536);
         for (int j = 0; j < 100; ++j) {
-            int y = myrandom.nextInt(65536) + 1;
+            int y = ram.nextInt(65536) + 1;
             testDivide0(x, y);
         }
     }
-    int cas = 1000000;
+    int cas = 100000;
     for (int caseNo = 0; cas--; ++caseNo) {
-        LL a = myrandom.nextLong(), b = myrandom.nextLong();
+        LL a = ram.nextLong(), b = ram.nextLong();
         testDivide0(a, b);
     }
 }
 
 void testToString10() {
-    for (int i = 0; i < 500000; ++i) {
-        LL x = myrandom.nextLong();
+    Random ram;
+    for (int i = 0; i < 120000; ++i) {
+        LL x = ram.nextLong();
         BigInteger yy(x);
 
         ostringstream ssa, ssb;
@@ -198,8 +200,9 @@ void testConstructor() {
 }
 
 void testBitWise() {
-    for (int i = -512; i <= 512; ++i) {
-        for (int j = -512; j <= 512; ++j) {
+    Random ram;
+    for (int i = -513; i <= 513; ++i) {
+        for (int j = -513; j <= 513; ++j) {
             BigInteger x(i), y(j);
             assert((x & y) == (i & j));
             assert((x | y) == (i | j));
@@ -208,7 +211,7 @@ void testBitWise() {
     }
     int cas = 100000;
     while (cas--) {
-        int i = myrandom.nextInt(), j = myrandom.nextInt();
+        int i = ram.nextInt(), j = ram.nextInt();
         BigInteger x(i), y(j);
         assert((x & y) == (i & j));
         assert((x | y) == (i | j));
@@ -250,6 +253,7 @@ void testInputString(const string & src) {
 }
 
 void testInput() {
+    Random ram;
     const string ss[] = {
         "+-",
         "0123456789",
@@ -259,11 +263,11 @@ void testInput() {
     };
     testInputString("");
     for (int cas = 500000; cas--;) {
-        int len = myrandom.nextInt(4) + 1;
+        int len = ram.nextInt(4) + 1;
         string src;
         for (int i = 0; i < len; ++i) {
-            const string & t = ss[myrandom.nextInt(sizeof ss / sizeof ss[0])];
-            src += t[myrandom.nextInt(t.length())];
+            const string & t = ss[ram.nextInt(sizeof ss / sizeof ss[0])];
+            src += t[ram.nextInt(t.length())];
         }
         testInputString(src);
     }

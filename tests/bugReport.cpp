@@ -1,3 +1,4 @@
+#define _GLIBCXX_DEBUG
 /* 
  * File:   testRightShift.cpp
  * Author: zhanhb

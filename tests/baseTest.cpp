@@ -12,7 +12,6 @@
 #include "BigInteger.h"
 #include "Random.h"
 #include "suite.h"
-Random myrandom;
 
 /*
  * Simple C++ Test Suite
@@ -80,6 +79,8 @@ void testCompile0(IntClass i) {
 }
 
 void testCompile() {
+    char ssssss[20] = "123456";
+    BigInteger t(ssssss);
     BigInteger x, y(x), z(3), w("abc", 14), r((LL) 124), s(string("gth"), 36);
     testCompile0(x);
     x.assign("abc", 16);
@@ -153,18 +154,19 @@ void testSelfAdd() {
         assert(BigInteger(x) == y);
         if (x == SHRT_MAX)break;
     }
-    int i = -1000000;
+    int i = -500000;
     y = i;
-    for (; i <= 1000000; ++i, ++y) {
+    for (; i <= 500000; ++i, ++y) {
         assert(BigInteger(i) == y);
     }
 }
 
 void testCompare() {
     int i;
+    Random random;
     for (i = -65537; i <= 65537; ++i) {
         for (int k = 0; k < 5; ++k) {
-            int j = myrandom.nextInt(32768) - 16384;
+            int j = random.nextInt(32768) - 16384;
             BigInteger ii = i, jj = j;
             assert((ii < jj) == (i < j));
             assert((ii > jj) == (i > j));
@@ -201,7 +203,7 @@ void testAddOne() {
 }
 
 void testUnaryFunction() {
-    for (int i = -100000; i <= 100000; ++i) {
+    for (int i = -70000; i <= 70000; ++i) {
         int x = i;
         BigInteger y = x;
 

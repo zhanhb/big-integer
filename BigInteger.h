@@ -6,7 +6,7 @@
  */
 
 #ifndef BIGINTEGER_H
-#define BIGINTEGER_H
+#define BIGINTEGER_H 2013081601
 #if (defined(_MSC_VER)) && _MSC_VER <= 1200
 #error Plase use other compliers instead of old version VC++ for it does not support standard c++.
 #endif
@@ -20,6 +20,9 @@
 #define __big_integer_assert(e) assert(e)
 #else
 #define __big_integer_assert(e)
+#endif
+#if defined(__GLIBCXX__) && !defined(__EXCEPTIONS)
+#define _BIG_INTEGER_NO_STRICT
 #endif
 
 template<typename StorageType, typename CalculateType>
@@ -45,6 +48,7 @@ public:
     BasicBigInteger(Value val);
     template<typename _CharT, typename _Traits, typename _Alloc> BasicBigInteger(const std::basic_string<_CharT, _Traits, _Alloc> & val, int radix = 10);
     template<typename _CharT> BasicBigInteger(const _CharT * val, int radix = 10);
+    template<typename _CharT> BasicBigInteger(_CharT * val, int radix = 10);
     template<typename IntClass> BasicBigInteger(IntClass val);
     BasicBigInteger & operator++();
     BasicBigInteger operator++(int);
@@ -61,6 +65,7 @@ public:
     template<typename _CharT, typename _Traits, typename _Alloc> void assign(const std::basic_string<_CharT, _Traits, _Alloc> & val, int radix = 10);
     BasicBigInteger & operator+=(const BasicBigInteger & val);
     BasicBigInteger & operator-=(const BasicBigInteger & val);
+    BasicBigInteger & operator*=(const BasicBigInteger & val);
     BasicBigInteger & operator%=(const BasicBigInteger & val);
     BasicBigInteger & operator/=(const BasicBigInteger & val);
     BasicBigInteger & operator<<=(int n);
@@ -74,6 +79,8 @@ public:
     int intValue() const;
     BasicBigInteger abs() const;
     BasicBigInteger gcd(const BasicBigInteger &) const;
+    void swap(BasicBigInteger &);
+    BasicBigInteger pow(int) const;
 
 #ifndef _BIG_INTEGER_NO_STRICT
     class ParseException;
@@ -90,8 +97,7 @@ private:
     static void subtractFrom(MagRef, ConstMagRef);
     static void subtractTo(ConstMagRef, MagRef);
     static void normalize(MagRef);
-    static void multiplyToLen(ConstMagRef, ConstMagRef, MagRef);
-    static void multiply(ConstMagRef, ConstMagRef, MagRef);
+    static void multiplyToLen(MagRef, ConstMagRef);
     static MagRef divide(MagRef, ConstMagRef, MagRef);
     template<typename IntClass> static int bitLength(IntClass);
     static bool unsignedLongCompare(Calc, Calc);
@@ -111,6 +117,7 @@ private:
     static Calc toLong(ConstMagRef);
     static SizeType destructiveMulAdd(MagRef, Value, Value, SizeType);
     template<typename _ForwardIterator> static Value parseInt(_ForwardIterator, _ForwardIterator, int);
+    template<typename IntClass>void initFromInteger(IntClass);
     static void doAnd(ConstMagRef, ConstMagRef, MagRef);
     static void doOr(ConstMagRef, ConstMagRef, MagRef);
     static void andNot(ConstMagRef, ConstMagRef, MagRef);
@@ -131,15 +138,6 @@ public:
     template<typename _CharT, typename _Traits, typename _Value, typename _Calc>
     friend std::basic_ostream<_CharT, _Traits> &
     operator<<(std::basic_ostream<_CharT, _Traits> & out, const BasicBigInteger<_Value, _Calc> &val);
-
-    friend BasicBigInteger operator *(const BasicBigInteger & lhs, const BasicBigInteger & rhs) {
-        if (lhs.signum == 0 || rhs.signum == 0)
-            return BasicBigInteger();
-
-        Mag mag;
-        multiply(lhs.mag, rhs.mag, mag);
-        return BasicBigInteger(mag, lhs.signum * rhs.signum);
-    }
 
     friend BasicBigInteger operator &(const BasicBigInteger & lhs, const BasicBigInteger & rhs) {
         int sa = lhs.signum, sb = rhs.signum;
@@ -252,7 +250,6 @@ friend cl & operator op##=                      \
     declareEqualFromFun(BasicBigInteger, &)
     declareEqualFromFun(BasicBigInteger, |)
     declareEqualFromFun(BasicBigInteger, ^)
-    declareEqualFromFun(BasicBigInteger, *)
 #undef declareEqualFromFun
 
 #define declareFunFromEqual(cl, op) friend      \
@@ -263,6 +260,7 @@ cl operator op(const cl & lhs, const cl & rhs) {\
 }
     declareFunFromEqual(BasicBigInteger, +)
     declareFunFromEqual(BasicBigInteger, -)
+    declareFunFromEqual(BasicBigInteger, *)
     declareFunFromEqual(BasicBigInteger, %)
     declareFunFromEqual(BasicBigInteger, /)
     /// Google code javascript can't recogonize this.
@@ -311,32 +309,20 @@ BasicBigInteger(const std::basic_string<_CharT, _Traits, _Alloc> & s, int radix)
     assign(s, radix);
 }
 
-template<typename Value, typename Calc>
-template<typename _CharT>
+template<typename Value, typename Calc> template<typename _CharT>
 BasicBigInteger<Value, Calc>::BasicBigInteger(const _CharT * s, int radix) : mag(), signum(0) {
+    assign(s, radix);
+}
+
+template<typename Value, typename Calc> template<typename _CharT>
+BasicBigInteger<Value, Calc>::BasicBigInteger(_CharT * s, int radix) : mag(), signum(0) {
     assign(s, radix);
 }
 
 template<typename Value, typename Calc> template<typename IntClass>
 BasicBigInteger<Value, Calc>::
-BasicBigInteger(IntClass val) : mag(), signum(0) {
-    IntClass zero(0);
-    if (val != zero) {
-        signum = (val < zero) ? -1 : 1;
-
-        mag.push_back(signum < 0 ? - static_cast<Value> (val) : static_cast<Value> (val));
-
-        int shift = SHIFT;
-        if (shift < 8 * sizeof val) {
-            if (signum < 0) val = zero - val;
-            val >>= shift;
-            if (val < zero) val &= ~(~static_cast<IntClass> (0) << ((8 * sizeof val) - shift));
-            while (val) {
-                mag.push_back(val);
-                val >>= shift;
-            }
-        }
-    }
+BasicBigInteger(IntClass argument) : mag(), signum(0) {
+    initFromInteger(argument);
 }
 
 template<typename Value, typename Calc>
@@ -499,7 +485,7 @@ void BasicBigInteger<Value, Calc>::assign(const std::basic_string<_CharT, _Trait
 }
 
 template<typename Value, typename Calc> BasicBigInteger<Value, Calc> & BasicBigInteger<Value, Calc>::
-        operator+=(const BasicBigInteger<Value, Calc> & val) {
+        operator+=(const BasicBigInteger & val) {
     if (val.signum == 0)
         return *this;
 
@@ -529,7 +515,7 @@ template<typename Value, typename Calc> BasicBigInteger<Value, Calc> & BasicBigI
 }
 
 template<typename Value, typename Calc> BasicBigInteger<Value, Calc> & BasicBigInteger<Value, Calc>::
-        operator-=(const BasicBigInteger<Value, Calc> & val) {
+        operator-=(const BasicBigInteger & val) {
     if (val.signum == 0)
         return *this;
     if (signum == 0) {
@@ -560,20 +546,31 @@ template<typename Value, typename Calc> BasicBigInteger<Value, Calc> & BasicBigI
 }
 
 template<typename Value, typename Calc> BasicBigInteger<Value, Calc> & BasicBigInteger<Value, Calc>::
-        operator/=(const BasicBigInteger<Value, Calc> & val) {
-    Mag quotient;
-    divide(mag, val.mag, quotient);
-    mag.swap(quotient);
+        operator*=(const BasicBigInteger & val) {
+    if (signum == 0)return *this;
+    if (val.signum == 0) {
+        mag.clear();
+        signum = 0;
+        return *this;
+    }
+    multiplyToLen(mag, val.mag);
     signum *= val.signum;
-    if (mag.empty())signum = 0;
     return *this;
 }
 
 template<typename Value, typename Calc> BasicBigInteger<Value, Calc> & BasicBigInteger<Value, Calc>::
-        operator%=(const BasicBigInteger<Value, Calc> & val) {
+        operator/=(const BasicBigInteger & val) {
     Mag quotient;
-    divide(mag, val.mag, quotient);
+    divide(mag, val.mag, quotient).swap(quotient);
     if (mag.empty())signum = 0;
+    else signum *= val.signum;
+    return *this;
+}
+
+template<typename Value, typename Calc> BasicBigInteger<Value, Calc> & BasicBigInteger<Value, Calc>::
+        operator%=(const BasicBigInteger & val) {
+    Mag quotient;
+    if (divide(mag, val.mag, quotient).empty())signum = 0;
     return *this;
 }
 
@@ -601,7 +598,7 @@ template<typename Value, typename Calc> BasicBigInteger<Value, Calc> & BasicBigI
 }
 
 template<typename Value, typename Calc>
-int BasicBigInteger<Value, Calc>::compareTo(const BasicBigInteger<Value, Calc> & val) const {
+int BasicBigInteger<Value, Calc>::compareTo(const BasicBigInteger & val) const {
     if (signum == val.signum) {
         switch (signum) {
             case 1:
@@ -619,7 +616,7 @@ template<typename Value, typename Calc> template<typename _CharT, typename _Trai
 std::basic_string<_CharT, _Traits, _Alloc> &
 BasicBigInteger<Value, Calc>::getChars(std::basic_string<_CharT, _Traits, _Alloc> & toAppend, int radix) const {
     if (signum == 0) {
-        toAppend += '0';
+        toAppend += digits[0];
         return toAppend;
     }
     if (radix < 2 || radix > 36)
@@ -641,11 +638,10 @@ BasicBigInteger<Value, Calc>::getChars(std::basic_string<_CharT, _Traits, _Alloc
     BasicBigInteger d(tool.longRadix[radix]);
     int len = tool.digitsPerLong[radix], k = len, m = 0;
     while (!tmp.empty()) {
-        divide(tmp, d.mag, q);
-        r2 = toLong(tmp);
+        r2 = toLong(divide(tmp, d.mag, q));
 
         for (; k < len; ++k) {
-            buf[m++] = '0';
+            buf[m++] = digits[0];
             if (m == bufsize) sbuf += buf, m = 0;
         }
         for (k = 0; r2; ++k, r2 /= radix) {
@@ -655,10 +651,9 @@ BasicBigInteger<Value, Calc>::getChars(std::basic_string<_CharT, _Traits, _Alloc
 
         if (q.empty())break;
 
-        divide(q, d.mag, tmp);
-        r2 = toLong(q);
+        r2 = toLong(divide(q, d.mag, tmp));
         for (; k < len; ++k) {
-            buf[m++] = '0';
+            buf[m++] = digits[0];
             if (m == bufsize) sbuf += buf, m = 0;
         }
         for (k = 0; r2; ++k, r2 /= radix) {
@@ -666,8 +661,10 @@ BasicBigInteger<Value, Calc>::getChars(std::basic_string<_CharT, _Traits, _Alloc
             if (m == bufsize) sbuf += buf, m = 0;
         }
     }
-    buf[m] = '\0';
-    sbuf += buf;
+    if (m) {
+        buf[m] = '\0';
+        sbuf += buf;
+    }
 
     // Put sign (if any) and first digit group into result buffer
     if (signum < 0)
@@ -867,17 +864,15 @@ void BasicBigInteger<Value, Calc>::normalize(MagRef data) {
 }
 
 template<typename Value, typename Calc>
-void BasicBigInteger<Value, Calc>::multiplyToLen(ConstMagRef lhs, ConstMagRef rhs, MagRef result) {
+void BasicBigInteger<Value, Calc>::multiplyToLen(MagRef lhs, ConstMagRef rhs) {
     SizeType xlen = lhs.size(), ylen = rhs.size();
 
-    result.resize(xlen + ylen);
+    Mag result(xlen + ylen);
     Calc carry = 0;
 
     for (SizeType j = 0, k = 0; j < ylen; ++j, ++k) {
-        Calc product = (rhs[j] & INT_MASK) *
-                (lhs[0] & INT_MASK) + carry;
-        result[k] = product;
-        carry = (product >> SHIFT) & INT_MASK;
+        result[k] = carry += (rhs[j] & INT_MASK) * (lhs[0] & INT_MASK);
+        carry = (carry >> SHIFT) & INT_MASK;
     }
 
     result[ylen] = carry;
@@ -894,11 +889,7 @@ void BasicBigInteger<Value, Calc>::multiplyToLen(ConstMagRef lhs, ConstMagRef rh
         result[i + ylen] = carry;
     }
     if (carry == 0)result.pop_back();
-}
-
-template<typename Value, typename Calc>
-void BasicBigInteger<Value, Calc>::multiply(ConstMagRef lhs, ConstMagRef rhs, MagRef result) {
-    multiplyToLen(lhs, rhs, result);
+    lhs.swap(result);
 }
 
 template<typename Value, typename Calc>
@@ -1080,12 +1071,12 @@ BasicBigInteger<Value, Calc>::divideMagnitude(MagRef rem, Mag divisor,
         }
     } // D7 loop on j
 
+    normalize(quotient);
+    normalize(rem);
+
     // D8 Unnormalize
     if (shift > 0)
         rightShift(rem, shift);
-
-    normalize(quotient);
-    normalize(rem);
     return rem;
 }
 
@@ -1327,6 +1318,27 @@ BasicBigInteger<Value, Calc>::parseInt(_ForwardIterator first, _ForwardIterator 
     return val;
 }
 
+template<typename Value, typename Calc> template<typename IntClass>
+void BasicBigInteger<Value, Calc>::initFromInteger(IntClass val) {
+    IntClass zero(0);
+    if (val != zero) {
+        signum = (val < zero) ? -1 : 1;
+
+        mag.push_back(signum < 0 ? - static_cast<Value> (val) : static_cast<Value> (val));
+
+        int shift = SHIFT;
+        if (shift < 8 * sizeof val) {
+            if (signum < 0) val = zero - val;
+            val >>= shift;
+            if (val < zero) val &= ~(~zero << ((8 * sizeof val) - shift));
+            while (val) {
+                mag.push_back(val);
+                val >>= shift;
+            }
+        }
+    }
+}
+
 template<typename Value, typename Calc>
 void BasicBigInteger<Value, Calc>::doAnd(ConstMagRef a, ConstMagRef b, MagRef result) {
     SizeType as = a.size(), bs = b.size();
@@ -1535,7 +1547,15 @@ double BasicBigInteger<Value, Calc>::doubleValue() const { // ieee754
 
 template<typename Value, typename Calc>
 int BasicBigInteger<Value, Calc>::intValue() const {
-    return signum ? signum * mag[0] : 0;
+    if (signum == 0)return 0;
+    int size = sizeof (int) << 3, shift = SHIFT;
+    if (size <= shift) return signum < 0 ? -mag[0] : mag[0];
+    int cursor = (size + SHIFT - 1) / SHIFT, result = 0;
+    if (cursor > mag.size())cursor = mag.size();
+    while (cursor--) {
+        result = (result << shift) | (mag[cursor] & INT_MASK);
+    }
+    return signum < 0 ? -result : result;
 }
 
 template<typename Value, typename Calc>
@@ -1544,18 +1564,39 @@ BasicBigInteger<Value, Calc> BasicBigInteger<Value, Calc>::abs() const {
 }
 
 template<typename Value, typename Calc >
-BasicBigInteger<Value, Calc> BasicBigInteger<Value, Calc>::gcd(const BasicBigInteger<Value, Calc> & val) const {
+BasicBigInteger<Value, Calc> BasicBigInteger<Value, Calc>::gcd(const BasicBigInteger & val) const {
     if (val.signum == 0)return BasicBigInteger(mag, 1);
     if (signum == 0)return BasicBigInteger(val.mag, 1);
 
     Mag a = this->mag, b = val.mag, q;
     while (true) {
-        divide(a, b, q);
-        if (a.empty())
-            return BasicBigInteger<Value, Calc > (b, 1);
-        divide(b, a, q);
-        if (b.empty())
-            return BasicBigInteger<Value, Calc > (a, 1);
+        if (divide(a, b, q).empty())
+            return BasicBigInteger(b, 1);
+        if (divide(b, a, q).empty())
+            return BasicBigInteger(a, 1);
+    }
+}
+
+template<typename Value, typename Calc>
+void BasicBigInteger<Value, Calc>::swap(BasicBigInteger & __x) {
+    if (this == &__x)return;
+    mag.swap(__x.mag);
+    signum ^= __x.signum;
+    __x.signum ^= signum;
+    signum ^= __x.signum;
+}
+
+template<typename Value, typename Calc>
+BasicBigInteger<Value, Calc> BasicBigInteger<Value, Calc>::pow(int n) const {
+    if (n < 0) return *this;
+    if (n == 0) return BasicBigInteger(Mag(1, 1), 1);
+    if (signum == 0 || n == 1) return *this;
+
+    Mag mag(1, 1), tmp = this->mag;
+    while (true) {
+        if (n & 1)multiplyToLen(mag, tmp);
+        if ((n >>= 1) == 0)return BasicBigInteger(mag, signum < 0 && (n & 1) ? -1 : 1);
+        multiplyToLen(tmp, tmp);
     }
 }
 
@@ -1587,7 +1628,7 @@ operator<<(std::basic_ostream<_CharT, _Traits> & out, const BasicBigInteger<Valu
     if (base == 16 && (flags & std::ios::uppercase)) {
         typedef typename StrType::size_type Size;
         for (Size i = _str.length(); i--;) {
-            typename StrType::reference & _ch = _str[i];
+            typename StrType::reference _ch = _str[i];
             if ('a' <= _ch && _ch <= 'z')
                 _ch ^= 32;
         }

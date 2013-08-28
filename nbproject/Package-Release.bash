@@ -11,8 +11,8 @@ CND_CONF=Release
 CND_DISTDIR=dist
 NBTMPDIR=build/${CND_CONF}/${CND_PLATFORM}/tmp-packaging
 TMPDIRNAME=tmp-packaging
-OUTPUT_PATH=${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/biginteger
-OUTPUT_BASENAME=biginteger
+OUTPUT_PATH=${TESTDIR}/TestFiles/f7
+OUTPUT_BASENAME=f7
 PACKAGE_TOP_DIR=biginteger/
 
 # Functions

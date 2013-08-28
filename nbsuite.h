@@ -23,7 +23,7 @@ class _C_simple_test_suite {
         return (t + 0.0) / CLOCKS_PER_SEC;
     }
 
-    void init() {
+    time_t init() {
         _M_name = basename(&_M_name[0]);
         for (int i = _M_name.length(); i--;) {
             if (_M_name[i] == '.') {
@@ -33,6 +33,7 @@ class _C_simple_test_suite {
         }
         std::cout << "%SUITE_STARTING% " << _M_name << std::endl;
         std::cout << "%SUITE_STARTED%" << std::endl;
+        return std::clock();
     }
 public:
 
@@ -45,20 +46,17 @@ public:
         : _M_line(line), _M_message(message), _M_file(file) { }
 
         template<typename _CharT, typename _Traits>
-        friend std::basic_ostream<_CharT, _Traits> & operator<<(std::basic_ostream<_CharT, _Traits> &os, _C_test_exception &ex) {
+        friend std::basic_ostream<_CharT, _Traits> & operator<<(std::basic_ostream<_CharT, _Traits> &os,
+                const _C_test_exception &ex) {
             return os << ex._M_message << ", " << ex._M_file << ", " << ex._M_line;
         }
     };
 
     typedef void (*_M_method)();
 
-    _C_simple_test_suite(const std::string &name) : _M_name(name), _L_start(clock()) {
-        init();
-    }
+    _C_simple_test_suite(const std::string &name) : _M_name(name), _L_start(init()) { }
 
-    _C_simple_test_suite() : _M_name(), _L_start(clock()) {
-        init();
-    }
+    _C_simple_test_suite() : _M_name(), _L_start(init()) { }
 
     void _M_test_method(_M_method method, const std::string & methodName) {
         std::cout << "%TEST_STARTED% " << methodName
@@ -66,16 +64,16 @@ public:
         time_t st = clock();
         try {
             method();
-        } catch (_C_test_exception & ex) {
+        } catch (const _C_test_exception & ex) {
             std::cout << "%TEST_FAILED% time=" << formatTime(clock() - st)
                     << " testname=" << methodName
                     << " (" << _M_name << ")"
                     << " message=" << ex << std::endl;
-        } catch (std::exception & ex) {
+        } catch (const std::exception & ex) {
             std::cout << "%TEST_FAILED% time=" << formatTime(clock() - st)
                     << " testname=" << methodName
                     << " (" << _M_name << ")"
-                    << " message=" << typeid(ex).name() << " " << ex.what() << std::endl;
+                    << " message=" << typeid (ex).name() << " " << ex.what() << std::endl;
         }
         std::cout << "%TEST_FINISHED% time=" << formatTime(clock() - st) << " "
                 << methodName << " (" << _M_name << ")" << std::endl;
@@ -95,7 +93,13 @@ public:
 #define TestMethod(methodName) do { theSuite._M_test_method(methodName, #methodName);} while(false)
 #define TestEnd() } while(false)
 #include <cassert>
-#define RC_INVOKED 
+#ifdef _ASSERT_H
+#undef _ASSERT_H
+#endif
+#define _ASSERT_H
+#ifndef RC_INVOKED
+#define RC_INVOKED
+#endif
 #undef assert
 #define assert TestSuiteAssert
 
